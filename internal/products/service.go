@@ -2,7 +2,6 @@ package products
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
@@ -27,7 +26,6 @@ func (s *svc) GetProductById(ctx context.Context, id int64) (repo.Product, error
 	product, err := s.repo.GetProductByID(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			slog.Info("err no rows")
 			return repo.Product{}, ErrProductNotFound
 		}
 		return repo.Product{}, err

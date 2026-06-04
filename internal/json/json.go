@@ -13,6 +13,9 @@ func Write(w http.ResponseWriter, statusCode int, data any) {
 	})
 }
 
-func Read(r *http.Request) int64 {
-	return 0
+func Read(r *http.Request, data any) error {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	return decoder.Decode(data)
 }

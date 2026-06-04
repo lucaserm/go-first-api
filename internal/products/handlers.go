@@ -4,7 +4,9 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
 	"github.com/lucaserm/ecom/internal/json"
 )
@@ -20,12 +22,19 @@ func NewHandler(service Service) *handler {
 }
 
 func (h *handler) GetProductById(w http.ResponseWriter, r *http.Request) {
-	id := json.Read(r)
+	idStr := chi.URLParam(r, "id")
+
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid product id", http.StatusBadRequest)
+		return
+	}
+
 	product, err := h.service.GetProductById(r.Context(), id)
 
 	if err != nil {
 		if errors.Is(err, ErrProductNotFound) {
-			http.Error(w, "product not found", http.StatusNotFound)
+			http.Error(w, "product not found for id "+idStr, http.StatusNotFound)
 			return
 		}
 

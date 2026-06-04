@@ -9,6 +9,64 @@ import (
 	"context"
 )
 
+const createOrder = `-- name: CreateOrder :one
+INSERT INTO orders (customer_id) VALUES ($1) RETURNING id, customer_id, created_at
+`
+
+func (q *Queries) CreateOrder(ctx context.Context, customerID int64) (Order, error) {
+	row := q.db.QueryRow(ctx, createOrder, customerID)
+	var i Order
+	err := row.Scan(&i.ID, &i.CustomerID, &i.CreatedAt)
+	return i, err
+}
+
+const createOrderItem = `-- name: CreateOrderItem :one
+INSERT INTO order_items (order_id, product_id, quantity, price_in_cents)
+VALUES ($1, $2, $3, $4) RETURNING id, order_id, product_id, quantity, price_in_cents, created_at
+`
+
+type CreateOrderItemParams struct {
+	OrderID      int64 `json:"order_id"`
+	ProductID    int64 `json:"product_id"`
+	Quantity     int32 `json:"quantity"`
+	PriceInCents int32 `json:"price_in_cents"`
+}
+
+func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error) {
+	row := q.db.QueryRow(ctx, createOrderItem,
+		arg.OrderID,
+		arg.ProductID,
+		arg.Quantity,
+		arg.PriceInCents,
+	)
+	var i OrderItem
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.ProductID,
+		&i.Quantity,
+		&i.PriceInCents,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const decreaseProductStock = `-- name: DecreaseProductStock :exec
+UPDATE products
+SET quantity = quantity - $1
+WHERE id = $2 AND quantity >= $1
+`
+
+type DecreaseProductStockParams struct {
+	Quantity int32 `json:"quantity"`
+	ID       int64 `json:"id"`
+}
+
+func (q *Queries) DecreaseProductStock(ctx context.Context, arg DecreaseProductStockParams) error {
+	_, err := q.db.Exec(ctx, decreaseProductStock, arg.Quantity, arg.ID)
+	return err
+}
+
 const getProductByID = `-- name: GetProductByID :one
 SELECT id, name, price_in_cents, quantity, created_at FROM products WHERE id = $1
 `
