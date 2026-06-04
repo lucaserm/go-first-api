@@ -9,7 +9,7 @@ import (
 )
 
 type Querier interface {
-	FindProductByID(ctx context.Context, id int64) (Product, error)
+	GetProductByID(ctx context.Context, id int64) (Product, error)
 	ListProducts(ctx context.Context) ([]Product, error)
 }
 

@@ -2,11 +2,14 @@ package products
 
 import (
 	"context"
+	"log/slog"
 
+	"github.com/jackc/pgx/v5"
 	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
 )
 
 type Service interface {
+	GetProductById(ctx context.Context, id int64) (repo.Product, error)
 	ListProducts(ctx context.Context) ([]repo.Product, error)
 }
 
@@ -20,6 +23,28 @@ func NewService(repo repo.Querier) Service {
 	}
 }
 
+func (s *svc) GetProductById(ctx context.Context, id int64) (repo.Product, error) {
+	product, err := s.repo.GetProductByID(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			slog.Info("err no rows")
+			return repo.Product{}, ErrProductNotFound
+		}
+		return repo.Product{}, err
+	}
+	return product, nil
+}
+
 func (s *svc) ListProducts(ctx context.Context) ([]repo.Product, error) {
-	return s.repo.ListProducts(ctx)
+	products, err := s.repo.ListProducts(ctx)
+
+	if err != nil {
+		return []repo.Product{}, err
+	}
+
+	if products == nil {
+		return []repo.Product{}, nil
+	}
+
+	return products, nil
 }
