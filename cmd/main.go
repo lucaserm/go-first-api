@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lucaserm/ecom/internal/env"
 )
 
@@ -17,24 +17,33 @@ func main() {
 		db: dbConfig{
 			dsn: env.GetString("GOOSE_DBSTRING", "host=localhost user=postgres password=postgres dbname=ecom sslmode=disable"),
 		},
+		jwtSecret:           env.GetString("JWT_SECRET", ""),
+		stripeSecretKey:     env.GetString("STRIPE_SECRET_KEY", ""),
+		stripeWebhookSecret: env.GetString("STRIPE_WEBHOOK_SECRET", ""),
+		easypostAPIKey:      env.GetString("EASYPOST_API_KEY", ""),
 	}
 
 	// logger
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	if cfg.jwtSecret == "" {
+		slog.Error("JWT_SECRET environment variable is required")
+		os.Exit(1)
+	}
+
 	// database
-	conn, err := pgx.Connect(ctx, cfg.db.dsn)
+	pool, err := pgxpool.New(ctx, cfg.db.dsn)
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close(ctx)
+	defer pool.Close()
 
 	logger.Info("connected to database")
 
 	api := application{
 		config: cfg,
-		db:     conn,
+		db:     pool,
 	}
 
 	if err := api.run(api.mount()); err != nil {

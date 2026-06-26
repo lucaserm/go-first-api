@@ -7,13 +7,15 @@ package repo
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (customer_id) VALUES ($1) RETURNING id, customer_id, created_at
 `
 
-func (q *Queries) CreateOrder(ctx context.Context, customerID int64) (Order, error) {
+func (q *Queries) CreateOrder(ctx context.Context, customerID pgtype.UUID) (Order, error) {
 	row := q.db.QueryRow(ctx, createOrder, customerID)
 	var i Order
 	err := row.Scan(&i.ID, &i.CustomerID, &i.CreatedAt)
@@ -51,6 +53,36 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 	return i, err
 }
 
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (id, username, email, hashed_password)
+VALUES ($1, $2, $3, $4) RETURNING id, username, email, hashed_password, created_at
+`
+
+type CreateUserParams struct {
+	ID             pgtype.UUID `json:"id"`
+	Username       string      `json:"username"`
+	Email          string      `json:"email"`
+	HashedPassword string      `json:"hashed_password"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser,
+		arg.ID,
+		arg.Username,
+		arg.Email,
+		arg.HashedPassword,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.HashedPassword,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const decreaseProductStock = `-- name: DecreaseProductStock :exec
 UPDATE products
 SET quantity = quantity - $1
@@ -79,6 +111,40 @@ func (q *Queries) GetProductByID(ctx context.Context, id int64) (Product, error)
 		&i.Name,
 		&i.PriceInCents,
 		&i.Quantity,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUserByEmailIgnoreCase = `-- name: GetUserByEmailIgnoreCase :one
+SELECT id, username, email, hashed_password, created_at FROM users WHERE lower(email) = lower($1)
+`
+
+func (q *Queries) GetUserByEmailIgnoreCase(ctx context.Context, lower string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmailIgnoreCase, lower)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.HashedPassword,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUserByUsernameIgnoreCase = `-- name: GetUserByUsernameIgnoreCase :one
+SELECT id, username, email, hashed_password, created_at FROM users WHERE lower(username) = lower($1)
+`
+
+func (q *Queries) GetUserByUsernameIgnoreCase(ctx context.Context, lower string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByUsernameIgnoreCase, lower)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.HashedPassword,
 		&i.CreatedAt,
 	)
 	return i, err

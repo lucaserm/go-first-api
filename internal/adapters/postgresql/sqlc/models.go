@@ -10,7 +10,7 @@ import (
 
 type Order struct {
 	ID         int64              `json:"id"`
-	CustomerID int64              `json:"customer_id"`
+	CustomerID pgtype.UUID        `json:"customer_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -29,4 +29,12 @@ type Product struct {
 	PriceInCents int32              `json:"price_in_cents"`
 	Quantity     int32              `json:"quantity"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type User struct {
+	ID             pgtype.UUID        `json:"id"`
+	Username       string             `json:"username"`
+	Email          string             `json:"email"`
+	HashedPassword string             `json:"hashed_password"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }

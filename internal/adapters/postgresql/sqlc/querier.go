@@ -6,13 +6,18 @@ package repo
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
-	CreateOrder(ctx context.Context, customerID int64) (Order, error)
+	CreateOrder(ctx context.Context, customerID pgtype.UUID) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DecreaseProductStock(ctx context.Context, arg DecreaseProductStockParams) error
 	GetProductByID(ctx context.Context, id int64) (Product, error)
+	GetUserByEmailIgnoreCase(ctx context.Context, lower string) (User, error)
+	GetUserByUsernameIgnoreCase(ctx context.Context, lower string) (User, error)
 	ListProducts(ctx context.Context) ([]Product, error)
 }
 

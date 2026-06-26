@@ -15,3 +15,13 @@ VALUES ($1, $2, $3, $4) RETURNING *;
 UPDATE products
 SET quantity = quantity - $1
 WHERE id = $2 AND quantity >= $1;
+
+-- name: GetUserByEmailIgnoreCase :one
+SELECT * FROM users WHERE lower(email) = lower($1);
+
+-- name: GetUserByUsernameIgnoreCase :one
+SELECT * FROM users WHERE lower(username) = lower($1);
+
+-- name: CreateUser :one
+INSERT INTO users (id, username, email, hashed_password)
+VALUES ($1, $2, $3, $4) RETURNING *;

@@ -7,16 +7,30 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
+	"github.com/lucaserm/ecom/internal/auth"
 	"github.com/lucaserm/ecom/internal/orders"
 	"github.com/lucaserm/ecom/internal/products"
 )
 
 type application struct {
 	config config
-	db     *pgx.Conn
+	db     *pgxpool.Pool
 	// logger
+}
+
+type config struct {
+	addr                string
+	db                  dbConfig
+	jwtSecret           string
+	stripeSecretKey     string
+	stripeWebhookSecret string
+	easypostAPIKey      string
+}
+
+type dbConfig struct {
+	dsn string
 }
 
 // mount
@@ -35,14 +49,23 @@ func (app *application) mount() http.Handler {
 		w.Write([]byte("Ok."))
 	})
 
+	// Public routes
 	productService := products.NewService(repo.New(app.db))
 	productHandler := products.NewHandler(productService)
-	r.Get("/products", productHandler.ListProducts)
-	r.Get("/products/{id}", productHandler.GetProductById)
+	productHandler.RegisterRoutes(r)
 
+	authService := auth.NewService(repo.New(app.db))
+	authHandler := auth.NewHandler(authService)
+	authHandler.RegisterRoutes(r)
+
+	// Authenticated routes
 	orderService := orders.NewService(repo.New(app.db), app.db)
 	orderHandler := orders.NewHandler(orderService)
-	r.Post("/orders", orderHandler.PlaceOrder)
+
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware)
+		orderHandler.RegisterRoutes(r)
+	})
 
 	return r
 }
@@ -60,13 +83,4 @@ func (app *application) run(h http.Handler) error {
 	log.Printf("server has started at addr %s", app.config.addr)
 
 	return srv.ListenAndServe()
-}
-
-type config struct {
-	addr string
-	db   dbConfig
-}
-
-type dbConfig struct {
-	dsn string
 }

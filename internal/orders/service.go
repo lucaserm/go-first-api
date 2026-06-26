@@ -5,24 +5,26 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
 	"github.com/lucaserm/ecom/internal/products"
 )
 
 type svc struct {
 	repo *repo.Queries
-	db   *pgx.Conn
+	db   *pgxpool.Pool
 }
 
-func NewService(repo *repo.Queries, db *pgx.Conn) Service {
+func NewService(repo *repo.Queries, db *pgxpool.Pool) Service {
 	return &svc{
 		repo: repo,
 		db:   db,
 	}
 }
 
-func (s *svc) PlaceOrder(ctx context.Context, payload createOrderParams) (repo.Order, error) {
-	if payload.CustomerID == 0 {
+func (s *svc) PlaceOrder(ctx context.Context, customerID pgtype.UUID, payload createOrderParams) (repo.Order, error) {
+	if !customerID.Valid {
 		return repo.Order{}, ErrCustomerIdIsRequired
 	}
 
@@ -41,7 +43,7 @@ func (s *svc) PlaceOrder(ctx context.Context, payload createOrderParams) (repo.O
 		_ = tx.Rollback(ctx)
 	}()
 
-	order, err := qtx.CreateOrder(ctx, payload.CustomerID)
+	order, err := qtx.CreateOrder(ctx, customerID)
 	if err != nil {
 		return repo.Order{}, err
 	}

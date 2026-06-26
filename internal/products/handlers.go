@@ -21,6 +21,11 @@ func NewHandler(service Service) *handler {
 	}
 }
 
+func (h *handler) RegisterRoutes(router *chi.Mux) {
+	router.Get("/products", h.ListProducts)
+	router.Get("/products/{id}", h.GetProductById)
+}
+
 func (h *handler) GetProductById(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 
