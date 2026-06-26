@@ -49,7 +49,7 @@ func (s *svc) PlaceOrder(ctx context.Context, customerID pgtype.UUID, payload cr
 	}
 
 	for _, item := range payload.Items {
-		product, err := qtx.GetProductByID(ctx, item.ProductID)
+		variant, err := qtx.GetVariantByID(ctx, item.VariantID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return repo.Order{}, products.ErrProductNotFound
@@ -57,23 +57,23 @@ func (s *svc) PlaceOrder(ctx context.Context, customerID pgtype.UUID, payload cr
 			return repo.Order{}, err
 		}
 
-		if product.Quantity < item.Quantity {
+		if variant.Stock < item.Quantity {
 			return repo.Order{}, products.ErrProductNoStock
 		}
 
 		_, err = qtx.CreateOrderItem(ctx, repo.CreateOrderItemParams{
 			OrderID:      order.ID,
-			ProductID:    product.ID,
+			VariantID:    variant.ID,
 			Quantity:     item.Quantity,
-			PriceInCents: product.PriceInCents,
+			PriceInCents: variant.PriceInCents,
 		})
 		if err != nil {
 			return repo.Order{}, err
 		}
 
-		err = qtx.DecreaseProductStock(ctx, repo.DecreaseProductStockParams{
-			Quantity: item.Quantity,
-			ID:       product.ID,
+		err = qtx.DecreaseVariantStock(ctx, repo.DecreaseVariantStockParams{
+			Stock: item.Quantity,
+			ID:    variant.ID,
 		})
 		if err != nil {
 			return repo.Order{}, err

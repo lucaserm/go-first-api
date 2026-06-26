@@ -8,7 +8,7 @@ import (
 )
 
 type orderItem struct {
-	ProductID int64 `json:"productId"`
+	VariantID int64 `json:"variantId"`
 	Quantity  int32 `json:"quantity"`
 }
 

@@ -50,7 +50,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	// Public routes
-	productService := products.NewService(repo.New(app.db))
+	productService := products.NewService(repo.New(app.db), app.db)
 	productHandler := products.NewHandler(productService)
 	productHandler.RegisterRoutes(r)
 
@@ -65,6 +65,7 @@ func (app *application) mount() http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware)
 		orderHandler.RegisterRoutes(r)
+		productHandler.RegisterProtectedRoutes(r)
 	})
 
 	return r

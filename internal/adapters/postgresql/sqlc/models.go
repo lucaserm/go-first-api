@@ -8,6 +8,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Category struct {
+	ID        int64              `json:"id"`
+	Name      string             `json:"name"`
+	Slug      string             `json:"slug"`
+	ParentID  pgtype.Int8        `json:"parent_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Order struct {
 	ID         int64              `json:"id"`
 	CustomerID pgtype.UUID        `json:"customer_id"`
@@ -17,17 +25,52 @@ type Order struct {
 type OrderItem struct {
 	ID           int64              `json:"id"`
 	OrderID      int64              `json:"order_id"`
-	ProductID    int64              `json:"product_id"`
 	Quantity     int32              `json:"quantity"`
 	PriceInCents int32              `json:"price_in_cents"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	VariantID    int64              `json:"variant_id"`
 }
 
 type Product struct {
+	ID          int64              `json:"id"`
+	Name        string             `json:"name"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Slug        pgtype.Text        `json:"slug"`
+	Description string             `json:"description"`
+	Status      string             `json:"status"`
+	CategoryID  pgtype.Int8        `json:"category_id"`
+}
+
+type ProductImage struct {
+	ID        int64              `json:"id"`
+	ProductID int64              `json:"product_id"`
+	VariantID pgtype.Int8        `json:"variant_id"`
+	Url       string             `json:"url"`
+	Position  int32              `json:"position"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type ProductOption struct {
+	ID        int64  `json:"id"`
+	ProductID int64  `json:"product_id"`
+	Name      string `json:"name"`
+	Position  int32  `json:"position"`
+}
+
+type ProductOptionValue struct {
+	ID       int64  `json:"id"`
+	OptionID int64  `json:"option_id"`
+	Value    string `json:"value"`
+	Position int32  `json:"position"`
+}
+
+type ProductVariant struct {
 	ID           int64              `json:"id"`
-	Name         string             `json:"name"`
+	ProductID    int64              `json:"product_id"`
+	Sku          string             `json:"sku"`
 	PriceInCents int32              `json:"price_in_cents"`
-	Quantity     int32              `json:"quantity"`
+	Stock        int32              `json:"stock"`
+	WeightGrams  int32              `json:"weight_grams"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -37,4 +80,9 @@ type User struct {
 	Email          string             `json:"email"`
 	HashedPassword string             `json:"hashed_password"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type VariantOptionValue struct {
+	VariantID     int64 `json:"variant_id"`
+	OptionValueID int64 `json:"option_value_id"`
 }

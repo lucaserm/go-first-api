@@ -11,14 +11,29 @@ import (
 )
 
 type Querier interface {
+	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateOrder(ctx context.Context, customerID pgtype.UUID) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
+	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	CreateProductImage(ctx context.Context, arg CreateProductImageParams) (ProductImage, error)
+	CreateProductOption(ctx context.Context, arg CreateProductOptionParams) (ProductOption, error)
+	CreateProductOptionValue(ctx context.Context, arg CreateProductOptionValueParams) (ProductOptionValue, error)
+	CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (ProductVariant, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	DecreaseProductStock(ctx context.Context, arg DecreaseProductStockParams) error
+	DecreaseVariantStock(ctx context.Context, arg DecreaseVariantStockParams) error
+	GetCategoryBySlug(ctx context.Context, slug string) (Category, error)
 	GetProductByID(ctx context.Context, id int64) (Product, error)
+	GetProductBySlug(ctx context.Context, slug pgtype.Text) (Product, error)
 	GetUserByEmailIgnoreCase(ctx context.Context, lower string) (User, error)
 	GetUserByUsernameIgnoreCase(ctx context.Context, lower string) (User, error)
+	GetVariantByID(ctx context.Context, id int64) (ProductVariant, error)
+	LinkVariantOptionValue(ctx context.Context, arg LinkVariantOptionValueParams) error
+	ListActiveProducts(ctx context.Context) ([]Product, error)
+	ListCategories(ctx context.Context) ([]Category, error)
+	ListImagesByProduct(ctx context.Context, productID int64) ([]ProductImage, error)
+	ListOptionsByProduct(ctx context.Context, productID int64) ([]ProductOption, error)
 	ListProducts(ctx context.Context) ([]Product, error)
+	ListVariantsByProduct(ctx context.Context, productID int64) ([]ProductVariant, error)
 }
 
 var _ Querier = (*Queries)(nil)
