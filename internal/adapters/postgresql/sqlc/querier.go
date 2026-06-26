@@ -25,6 +25,7 @@ type Querier interface {
 	GetProductByID(ctx context.Context, id int64) (Product, error)
 	GetProductBySlug(ctx context.Context, slug pgtype.Text) (Product, error)
 	GetUserByEmailIgnoreCase(ctx context.Context, lower string) (User, error)
+	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByUsernameIgnoreCase(ctx context.Context, lower string) (User, error)
 	GetVariantByID(ctx context.Context, id int64) (ProductVariant, error)
 	LinkVariantOptionValue(ctx context.Context, arg LinkVariantOptionValueParams) error

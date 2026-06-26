@@ -224,7 +224,7 @@ func (q *Queries) CreateProductVariant(ctx context.Context, arg CreateProductVar
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, username, email, hashed_password)
-VALUES ($1, $2, $3, $4) RETURNING id, username, email, hashed_password, created_at
+VALUES ($1, $2, $3, $4) RETURNING id, username, email, hashed_password, created_at, role
 `
 
 type CreateUserParams struct {
@@ -248,6 +248,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.HashedPassword,
 		&i.CreatedAt,
+		&i.Role,
 	)
 	return i, err
 }
@@ -324,7 +325,7 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug pgtype.Text) (Produ
 }
 
 const getUserByEmailIgnoreCase = `-- name: GetUserByEmailIgnoreCase :one
-SELECT id, username, email, hashed_password, created_at FROM users WHERE lower(email) = lower($1)
+SELECT id, username, email, hashed_password, created_at, role FROM users WHERE lower(email) = lower($1)
 `
 
 func (q *Queries) GetUserByEmailIgnoreCase(ctx context.Context, lower string) (User, error) {
@@ -336,12 +337,31 @@ func (q *Queries) GetUserByEmailIgnoreCase(ctx context.Context, lower string) (U
 		&i.Email,
 		&i.HashedPassword,
 		&i.CreatedAt,
+		&i.Role,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, username, email, hashed_password, created_at, role FROM users WHERE id = $1
+`
+
+func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.HashedPassword,
+		&i.CreatedAt,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByUsernameIgnoreCase = `-- name: GetUserByUsernameIgnoreCase :one
-SELECT id, username, email, hashed_password, created_at FROM users WHERE lower(username) = lower($1)
+SELECT id, username, email, hashed_password, created_at, role FROM users WHERE lower(username) = lower($1)
 `
 
 func (q *Queries) GetUserByUsernameIgnoreCase(ctx context.Context, lower string) (User, error) {
@@ -353,6 +373,7 @@ func (q *Queries) GetUserByUsernameIgnoreCase(ctx context.Context, lower string)
 		&i.Email,
 		&i.HashedPassword,
 		&i.CreatedAt,
+		&i.Role,
 	)
 	return i, err
 }

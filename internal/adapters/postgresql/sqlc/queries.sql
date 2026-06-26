@@ -68,6 +68,9 @@ INSERT INTO orders (customer_id) VALUES ($1) RETURNING *;
 INSERT INTO order_items (order_id, variant_id, quantity, price_in_cents)
 VALUES ($1, $2, $3, $4) RETURNING *;
 
+-- name: GetUserByID :one
+SELECT * FROM users WHERE id = $1;
+
 -- name: GetUserByEmailIgnoreCase :one
 SELECT * FROM users WHERE lower(email) = lower($1);
 

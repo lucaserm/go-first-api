@@ -80,6 +80,7 @@ type User struct {
 	Email          string             `json:"email"`
 	HashedPassword string             `json:"hashed_password"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Role           string             `json:"role"`
 }
 
 type VariantOptionValue struct {

@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
 	"github.com/lucaserm/ecom/internal/json"
 	"github.com/lucaserm/ecom/internal/utils"
 )
@@ -14,7 +17,10 @@ type contextKey string
 
 const userIDContextKey contextKey = "userID"
 
-var errUnauthorized = errors.New("unauthorized")
+var (
+	errUnauthorized = errors.New("unauthorized")
+	errForbidden    = errors.New("admin access required")
+)
 
 // Middleware authenticates requests using a Bearer JWT and stores the
 // authenticated user id in the request context.
@@ -43,4 +49,37 @@ func Middleware(next http.Handler) http.Handler {
 func UserIDFromContext(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(userIDContextKey).(string)
 	return userID, ok
+}
+
+// RequireAdmin must be used after Middleware. It loads the authenticated user
+// and rejects the request unless their role is "admin".
+func RequireAdmin(queries *repo.Queries) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userID, ok := UserIDFromContext(r.Context())
+			if !ok {
+				json.WriteError(w, http.StatusUnauthorized, errUnauthorized)
+				return
+			}
+
+			id, err := uuid.Parse(userID)
+			if err != nil {
+				json.WriteError(w, http.StatusUnauthorized, errUnauthorized)
+				return
+			}
+
+			user, err := queries.GetUserByID(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
+			if err != nil {
+				json.WriteError(w, http.StatusUnauthorized, errUnauthorized)
+				return
+			}
+
+			if user.Role != "admin" {
+				json.WriteError(w, http.StatusForbidden, errForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }

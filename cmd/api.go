@@ -65,7 +65,12 @@ func (app *application) mount() http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware)
 		orderHandler.RegisterRoutes(r)
-		productHandler.RegisterProtectedRoutes(r)
+
+		// Admin-only routes
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireAdmin(repo.New(app.db)))
+			productHandler.RegisterProtectedRoutes(r)
+		})
 	})
 
 	return r
