@@ -80,3 +80,46 @@ SELECT * FROM users WHERE lower(username) = lower($1);
 -- name: CreateUser :one
 INSERT INTO users (id, username, email, hashed_password)
 VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: CreateAddress :one
+INSERT INTO addresses (
+    user_id, recipient_name, line1, line2, city, region, postal_code, country, phone, is_default
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
+
+-- name: ListAddressesByUser :many
+SELECT * FROM addresses
+WHERE user_id = $1
+ORDER BY is_default DESC, id;
+
+-- name: GetAddressByIDForUser :one
+SELECT * FROM addresses
+WHERE id = $1 AND user_id = $2;
+
+-- name: UpdateAddressForUser :one
+UPDATE addresses
+SET recipient_name = $3,
+    line1 = $4,
+    line2 = $5,
+    city = $6,
+    region = $7,
+    postal_code = $8,
+    country = $9,
+    phone = $10,
+    is_default = $11,
+    updated_at = now()
+WHERE id = $1 AND user_id = $2
+RETURNING *;
+
+-- name: DeleteAddressForUser :execrows
+DELETE FROM addresses
+WHERE id = $1 AND user_id = $2;
+
+-- name: UnsetDefaultAddressesForUser :exec
+UPDATE addresses
+SET is_default = false, updated_at = now()
+WHERE user_id = $1;
+
+-- name: SetDefaultAddressForUser :exec
+UPDATE addresses
+SET is_default = true, updated_at = now()
+WHERE id = $1 AND user_id = $2;

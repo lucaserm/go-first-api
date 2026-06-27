@@ -11,6 +11,57 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createAddress = `-- name: CreateAddress :one
+INSERT INTO addresses (
+    user_id, recipient_name, line1, line2, city, region, postal_code, country, phone, is_default
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, user_id, recipient_name, line1, line2, city, region, postal_code, country, phone, is_default, created_at, updated_at
+`
+
+type CreateAddressParams struct {
+	UserID        pgtype.UUID `json:"user_id"`
+	RecipientName string      `json:"recipient_name"`
+	Line1         string      `json:"line1"`
+	Line2         string      `json:"line2"`
+	City          string      `json:"city"`
+	Region        string      `json:"region"`
+	PostalCode    string      `json:"postal_code"`
+	Country       string      `json:"country"`
+	Phone         string      `json:"phone"`
+	IsDefault     bool        `json:"is_default"`
+}
+
+func (q *Queries) CreateAddress(ctx context.Context, arg CreateAddressParams) (Address, error) {
+	row := q.db.QueryRow(ctx, createAddress,
+		arg.UserID,
+		arg.RecipientName,
+		arg.Line1,
+		arg.Line2,
+		arg.City,
+		arg.Region,
+		arg.PostalCode,
+		arg.Country,
+		arg.Phone,
+		arg.IsDefault,
+	)
+	var i Address
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.RecipientName,
+		&i.Line1,
+		&i.Line2,
+		&i.City,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.Phone,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createCategory = `-- name: CreateCategory :one
 INSERT INTO categories (name, slug, parent_id)
 VALUES ($1, $2, $3) RETURNING id, name, slug, parent_id, created_at
@@ -269,6 +320,55 @@ func (q *Queries) DecreaseVariantStock(ctx context.Context, arg DecreaseVariantS
 	return err
 }
 
+const deleteAddressForUser = `-- name: DeleteAddressForUser :execrows
+DELETE FROM addresses
+WHERE id = $1 AND user_id = $2
+`
+
+type DeleteAddressForUserParams struct {
+	ID     int64       `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteAddressForUser(ctx context.Context, arg DeleteAddressForUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAddressForUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getAddressByIDForUser = `-- name: GetAddressByIDForUser :one
+SELECT id, user_id, recipient_name, line1, line2, city, region, postal_code, country, phone, is_default, created_at, updated_at FROM addresses
+WHERE id = $1 AND user_id = $2
+`
+
+type GetAddressByIDForUserParams struct {
+	ID     int64       `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetAddressByIDForUser(ctx context.Context, arg GetAddressByIDForUserParams) (Address, error) {
+	row := q.db.QueryRow(ctx, getAddressByIDForUser, arg.ID, arg.UserID)
+	var i Address
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.RecipientName,
+		&i.Line1,
+		&i.Line2,
+		&i.City,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.Phone,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getCategoryBySlug = `-- name: GetCategoryBySlug :one
 SELECT id, name, slug, parent_id, created_at FROM categories WHERE slug = $1
 `
@@ -444,6 +544,46 @@ func (q *Queries) ListActiveProducts(ctx context.Context) ([]Product, error) {
 	return items, nil
 }
 
+const listAddressesByUser = `-- name: ListAddressesByUser :many
+SELECT id, user_id, recipient_name, line1, line2, city, region, postal_code, country, phone, is_default, created_at, updated_at FROM addresses
+WHERE user_id = $1
+ORDER BY is_default DESC, id
+`
+
+func (q *Queries) ListAddressesByUser(ctx context.Context, userID pgtype.UUID) ([]Address, error) {
+	rows, err := q.db.Query(ctx, listAddressesByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Address
+	for rows.Next() {
+		var i Address
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.RecipientName,
+			&i.Line1,
+			&i.Line2,
+			&i.City,
+			&i.Region,
+			&i.PostalCode,
+			&i.Country,
+			&i.Phone,
+			&i.IsDefault,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCategories = `-- name: ListCategories :many
 SELECT id, name, slug, parent_id, created_at FROM categories ORDER BY name
 `
@@ -596,4 +736,94 @@ func (q *Queries) ListVariantsByProduct(ctx context.Context, productID int64) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const setDefaultAddressForUser = `-- name: SetDefaultAddressForUser :exec
+UPDATE addresses
+SET is_default = true, updated_at = now()
+WHERE id = $1 AND user_id = $2
+`
+
+type SetDefaultAddressForUserParams struct {
+	ID     int64       `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) SetDefaultAddressForUser(ctx context.Context, arg SetDefaultAddressForUserParams) error {
+	_, err := q.db.Exec(ctx, setDefaultAddressForUser, arg.ID, arg.UserID)
+	return err
+}
+
+const unsetDefaultAddressesForUser = `-- name: UnsetDefaultAddressesForUser :exec
+UPDATE addresses
+SET is_default = false, updated_at = now()
+WHERE user_id = $1
+`
+
+func (q *Queries) UnsetDefaultAddressesForUser(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, unsetDefaultAddressesForUser, userID)
+	return err
+}
+
+const updateAddressForUser = `-- name: UpdateAddressForUser :one
+UPDATE addresses
+SET recipient_name = $3,
+    line1 = $4,
+    line2 = $5,
+    city = $6,
+    region = $7,
+    postal_code = $8,
+    country = $9,
+    phone = $10,
+    is_default = $11,
+    updated_at = now()
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, recipient_name, line1, line2, city, region, postal_code, country, phone, is_default, created_at, updated_at
+`
+
+type UpdateAddressForUserParams struct {
+	ID            int64       `json:"id"`
+	UserID        pgtype.UUID `json:"user_id"`
+	RecipientName string      `json:"recipient_name"`
+	Line1         string      `json:"line1"`
+	Line2         string      `json:"line2"`
+	City          string      `json:"city"`
+	Region        string      `json:"region"`
+	PostalCode    string      `json:"postal_code"`
+	Country       string      `json:"country"`
+	Phone         string      `json:"phone"`
+	IsDefault     bool        `json:"is_default"`
+}
+
+func (q *Queries) UpdateAddressForUser(ctx context.Context, arg UpdateAddressForUserParams) (Address, error) {
+	row := q.db.QueryRow(ctx, updateAddressForUser,
+		arg.ID,
+		arg.UserID,
+		arg.RecipientName,
+		arg.Line1,
+		arg.Line2,
+		arg.City,
+		arg.Region,
+		arg.PostalCode,
+		arg.Country,
+		arg.Phone,
+		arg.IsDefault,
+	)
+	var i Address
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.RecipientName,
+		&i.Line1,
+		&i.Line2,
+		&i.City,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.Phone,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

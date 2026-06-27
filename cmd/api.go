@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
+	"github.com/lucaserm/ecom/internal/addresses"
 	"github.com/lucaserm/ecom/internal/auth"
 	"github.com/lucaserm/ecom/internal/orders"
 	"github.com/lucaserm/ecom/internal/products"
@@ -62,9 +63,13 @@ func (app *application) mount() http.Handler {
 	orderService := orders.NewService(repo.New(app.db), app.db)
 	orderHandler := orders.NewHandler(orderService)
 
+	addressService := addresses.NewService(repo.New(app.db), app.db)
+	addressHandler := addresses.NewHandler(addressService)
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware)
 		orderHandler.RegisterRoutes(r)
+		addressHandler.RegisterRoutes(r)
 
 		// Admin-only routes
 		r.Group(func(r chi.Router) {

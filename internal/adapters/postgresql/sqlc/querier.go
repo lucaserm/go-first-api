@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CreateAddress(ctx context.Context, arg CreateAddressParams) (Address, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateOrder(ctx context.Context, customerID pgtype.UUID) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
@@ -21,6 +22,8 @@ type Querier interface {
 	CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (ProductVariant, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DecreaseVariantStock(ctx context.Context, arg DecreaseVariantStockParams) error
+	DeleteAddressForUser(ctx context.Context, arg DeleteAddressForUserParams) (int64, error)
+	GetAddressByIDForUser(ctx context.Context, arg GetAddressByIDForUserParams) (Address, error)
 	GetCategoryBySlug(ctx context.Context, slug string) (Category, error)
 	GetProductByID(ctx context.Context, id int64) (Product, error)
 	GetProductBySlug(ctx context.Context, slug pgtype.Text) (Product, error)
@@ -30,11 +33,15 @@ type Querier interface {
 	GetVariantByID(ctx context.Context, id int64) (ProductVariant, error)
 	LinkVariantOptionValue(ctx context.Context, arg LinkVariantOptionValueParams) error
 	ListActiveProducts(ctx context.Context) ([]Product, error)
+	ListAddressesByUser(ctx context.Context, userID pgtype.UUID) ([]Address, error)
 	ListCategories(ctx context.Context) ([]Category, error)
 	ListImagesByProduct(ctx context.Context, productID int64) ([]ProductImage, error)
 	ListOptionsByProduct(ctx context.Context, productID int64) ([]ProductOption, error)
 	ListProducts(ctx context.Context) ([]Product, error)
 	ListVariantsByProduct(ctx context.Context, productID int64) ([]ProductVariant, error)
+	SetDefaultAddressForUser(ctx context.Context, arg SetDefaultAddressForUserParams) error
+	UnsetDefaultAddressesForUser(ctx context.Context, userID pgtype.UUID) error
+	UpdateAddressForUser(ctx context.Context, arg UpdateAddressForUserParams) (Address, error)
 }
 
 var _ Querier = (*Queries)(nil)
