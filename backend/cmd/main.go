@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lucaserm/ecom/internal/env"
@@ -21,6 +22,7 @@ func main() {
 		stripeSecretKey:     env.GetString("STRIPE_SECRET_KEY", ""),
 		stripeWebhookSecret: env.GetString("STRIPE_WEBHOOK_SECRET", ""),
 		easypostAPIKey:      env.GetString("EASYPOST_API_KEY", ""),
+		corsOrigins:         strings.Split(env.GetString("CORS_ALLOWED_ORIGINS", "http://localhost:5173"), ","),
 	}
 
 	// logger

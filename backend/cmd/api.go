@@ -7,11 +7,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
 	"github.com/lucaserm/ecom/internal/addresses"
 	"github.com/lucaserm/ecom/internal/auth"
 	"github.com/lucaserm/ecom/internal/cart"
+	"github.com/lucaserm/ecom/internal/json"
 	"github.com/lucaserm/ecom/internal/orders"
 	"github.com/lucaserm/ecom/internal/products"
 )
@@ -29,6 +31,7 @@ type config struct {
 	stripeSecretKey     string
 	stripeWebhookSecret string
 	easypostAPIKey      string
+	corsOrigins         []string
 }
 
 type dbConfig struct {
@@ -45,10 +48,21 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   app.config.corsOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	}))
+
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Ok."))
+		json.Write(w, 200, map[string]string{
+			"status":  "ok",
+			"service": "ecom",
+		})
 	})
 
 	// Public routes
