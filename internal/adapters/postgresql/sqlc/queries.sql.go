@@ -115,26 +115,93 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 }
 
 const createOrder = `-- name: CreateOrder :one
-INSERT INTO orders (customer_id) VALUES ($1) RETURNING id, customer_id, created_at
+INSERT INTO orders (
+    customer_id, status, currency,
+    subtotal_cents, shipping_cents, tax_cents, total_cents,
+    shipping_address_id,
+    ship_recipient_name, ship_line1, ship_line2, ship_city,
+    ship_region, ship_postal_code, ship_country, ship_phone
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+) RETURNING id, customer_id, created_at, status, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, stripe_payment_intent_id, shipping_address_id, ship_recipient_name, ship_line1, ship_line2, ship_city, ship_region, ship_postal_code, ship_country, ship_phone, updated_at
 `
 
-func (q *Queries) CreateOrder(ctx context.Context, customerID pgtype.UUID) (Order, error) {
-	row := q.db.QueryRow(ctx, createOrder, customerID)
+type CreateOrderParams struct {
+	CustomerID        pgtype.UUID `json:"customer_id"`
+	Status            string      `json:"status"`
+	Currency          string      `json:"currency"`
+	SubtotalCents     int32       `json:"subtotal_cents"`
+	ShippingCents     int32       `json:"shipping_cents"`
+	TaxCents          int32       `json:"tax_cents"`
+	TotalCents        int32       `json:"total_cents"`
+	ShippingAddressID pgtype.Int8 `json:"shipping_address_id"`
+	ShipRecipientName string      `json:"ship_recipient_name"`
+	ShipLine1         string      `json:"ship_line1"`
+	ShipLine2         string      `json:"ship_line2"`
+	ShipCity          string      `json:"ship_city"`
+	ShipRegion        string      `json:"ship_region"`
+	ShipPostalCode    string      `json:"ship_postal_code"`
+	ShipCountry       string      `json:"ship_country"`
+	ShipPhone         string      `json:"ship_phone"`
+}
+
+func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
+	row := q.db.QueryRow(ctx, createOrder,
+		arg.CustomerID,
+		arg.Status,
+		arg.Currency,
+		arg.SubtotalCents,
+		arg.ShippingCents,
+		arg.TaxCents,
+		arg.TotalCents,
+		arg.ShippingAddressID,
+		arg.ShipRecipientName,
+		arg.ShipLine1,
+		arg.ShipLine2,
+		arg.ShipCity,
+		arg.ShipRegion,
+		arg.ShipPostalCode,
+		arg.ShipCountry,
+		arg.ShipPhone,
+	)
 	var i Order
-	err := row.Scan(&i.ID, &i.CustomerID, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.CreatedAt,
+		&i.Status,
+		&i.Currency,
+		&i.SubtotalCents,
+		&i.ShippingCents,
+		&i.TaxCents,
+		&i.TotalCents,
+		&i.StripePaymentIntentID,
+		&i.ShippingAddressID,
+		&i.ShipRecipientName,
+		&i.ShipLine1,
+		&i.ShipLine2,
+		&i.ShipCity,
+		&i.ShipRegion,
+		&i.ShipPostalCode,
+		&i.ShipCountry,
+		&i.ShipPhone,
+		&i.UpdatedAt,
+	)
 	return i, err
 }
 
 const createOrderItem = `-- name: CreateOrderItem :one
-INSERT INTO order_items (order_id, variant_id, quantity, price_in_cents)
-VALUES ($1, $2, $3, $4) RETURNING id, order_id, quantity, price_in_cents, created_at, variant_id
+INSERT INTO order_items (order_id, variant_id, quantity, price_in_cents, variant_sku, product_name)
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, order_id, quantity, price_in_cents, created_at, variant_id, variant_sku, product_name
 `
 
 type CreateOrderItemParams struct {
-	OrderID      int64 `json:"order_id"`
-	VariantID    int64 `json:"variant_id"`
-	Quantity     int32 `json:"quantity"`
-	PriceInCents int32 `json:"price_in_cents"`
+	OrderID      int64  `json:"order_id"`
+	VariantID    int64  `json:"variant_id"`
+	Quantity     int32  `json:"quantity"`
+	PriceInCents int32  `json:"price_in_cents"`
+	VariantSku   string `json:"variant_sku"`
+	ProductName  string `json:"product_name"`
 }
 
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error) {
@@ -143,6 +210,8 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 		arg.VariantID,
 		arg.Quantity,
 		arg.PriceInCents,
+		arg.VariantSku,
+		arg.ProductName,
 	)
 	var i OrderItem
 	err := row.Scan(
@@ -152,6 +221,8 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 		&i.PriceInCents,
 		&i.CreatedAt,
 		&i.VariantID,
+		&i.VariantSku,
+		&i.ProductName,
 	)
 	return i, err
 }
@@ -332,7 +403,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
-const decreaseVariantStock = `-- name: DecreaseVariantStock :exec
+const decreaseVariantStock = `-- name: DecreaseVariantStock :execrows
 UPDATE product_variants
 SET stock = stock - $1
 WHERE id = $2 AND stock >= $1
@@ -343,9 +414,12 @@ type DecreaseVariantStockParams struct {
 	ID    int64 `json:"id"`
 }
 
-func (q *Queries) DecreaseVariantStock(ctx context.Context, arg DecreaseVariantStockParams) error {
-	_, err := q.db.Exec(ctx, decreaseVariantStock, arg.Stock, arg.ID)
-	return err
+func (q *Queries) DecreaseVariantStock(ctx context.Context, arg DecreaseVariantStockParams) (int64, error) {
+	result, err := q.db.Exec(ctx, decreaseVariantStock, arg.Stock, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteAddressForUser = `-- name: DeleteAddressForUser :execrows
@@ -444,6 +518,43 @@ func (q *Queries) GetCategoryBySlug(ctx context.Context, slug string) (Category,
 		&i.Slug,
 		&i.ParentID,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getOrderByIDForCustomer = `-- name: GetOrderByIDForCustomer :one
+SELECT id, customer_id, created_at, status, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, stripe_payment_intent_id, shipping_address_id, ship_recipient_name, ship_line1, ship_line2, ship_city, ship_region, ship_postal_code, ship_country, ship_phone, updated_at FROM orders WHERE id = $1 AND customer_id = $2
+`
+
+type GetOrderByIDForCustomerParams struct {
+	ID         int64       `json:"id"`
+	CustomerID pgtype.UUID `json:"customer_id"`
+}
+
+func (q *Queries) GetOrderByIDForCustomer(ctx context.Context, arg GetOrderByIDForCustomerParams) (Order, error) {
+	row := q.db.QueryRow(ctx, getOrderByIDForCustomer, arg.ID, arg.CustomerID)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.CreatedAt,
+		&i.Status,
+		&i.Currency,
+		&i.SubtotalCents,
+		&i.ShippingCents,
+		&i.TaxCents,
+		&i.TotalCents,
+		&i.StripePaymentIntentID,
+		&i.ShippingAddressID,
+		&i.ShipRecipientName,
+		&i.ShipLine1,
+		&i.ShipLine2,
+		&i.ShipCity,
+		&i.ShipRegion,
+		&i.ShipPostalCode,
+		&i.ShipCountry,
+		&i.ShipPhone,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -790,6 +901,84 @@ func (q *Queries) ListOptionsByProduct(ctx context.Context, productID int64) ([]
 	return items, nil
 }
 
+const listOrderItemsByOrder = `-- name: ListOrderItemsByOrder :many
+SELECT id, order_id, quantity, price_in_cents, created_at, variant_id, variant_sku, product_name FROM order_items WHERE order_id = $1 ORDER BY id
+`
+
+func (q *Queries) ListOrderItemsByOrder(ctx context.Context, orderID int64) ([]OrderItem, error) {
+	rows, err := q.db.Query(ctx, listOrderItemsByOrder, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OrderItem
+	for rows.Next() {
+		var i OrderItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.Quantity,
+			&i.PriceInCents,
+			&i.CreatedAt,
+			&i.VariantID,
+			&i.VariantSku,
+			&i.ProductName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrdersByCustomer = `-- name: ListOrdersByCustomer :many
+SELECT id, customer_id, created_at, status, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, stripe_payment_intent_id, shipping_address_id, ship_recipient_name, ship_line1, ship_line2, ship_city, ship_region, ship_postal_code, ship_country, ship_phone, updated_at FROM orders WHERE customer_id = $1 ORDER BY id DESC
+`
+
+func (q *Queries) ListOrdersByCustomer(ctx context.Context, customerID pgtype.UUID) ([]Order, error) {
+	rows, err := q.db.Query(ctx, listOrdersByCustomer, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Order
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.CreatedAt,
+			&i.Status,
+			&i.Currency,
+			&i.SubtotalCents,
+			&i.ShippingCents,
+			&i.TaxCents,
+			&i.TotalCents,
+			&i.StripePaymentIntentID,
+			&i.ShippingAddressID,
+			&i.ShipRecipientName,
+			&i.ShipLine1,
+			&i.ShipLine2,
+			&i.ShipCity,
+			&i.ShipRegion,
+			&i.ShipPostalCode,
+			&i.ShipCountry,
+			&i.ShipPhone,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProducts = `-- name: ListProducts :many
 SELECT id, name, created_at, slug, description, status, category_id FROM products
 `
@@ -897,6 +1086,44 @@ func (q *Queries) SetDefaultAddressForUser(ctx context.Context, arg SetDefaultAd
 	return err
 }
 
+const setOrderPaymentIntent = `-- name: SetOrderPaymentIntent :one
+UPDATE orders SET stripe_payment_intent_id = $2, status = $3, updated_at = now() WHERE id = $1 RETURNING id, customer_id, created_at, status, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, stripe_payment_intent_id, shipping_address_id, ship_recipient_name, ship_line1, ship_line2, ship_city, ship_region, ship_postal_code, ship_country, ship_phone, updated_at
+`
+
+type SetOrderPaymentIntentParams struct {
+	ID                    int64  `json:"id"`
+	StripePaymentIntentID string `json:"stripe_payment_intent_id"`
+	Status                string `json:"status"`
+}
+
+func (q *Queries) SetOrderPaymentIntent(ctx context.Context, arg SetOrderPaymentIntentParams) (Order, error) {
+	row := q.db.QueryRow(ctx, setOrderPaymentIntent, arg.ID, arg.StripePaymentIntentID, arg.Status)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.CreatedAt,
+		&i.Status,
+		&i.Currency,
+		&i.SubtotalCents,
+		&i.ShippingCents,
+		&i.TaxCents,
+		&i.TotalCents,
+		&i.StripePaymentIntentID,
+		&i.ShippingAddressID,
+		&i.ShipRecipientName,
+		&i.ShipLine1,
+		&i.ShipLine2,
+		&i.ShipCity,
+		&i.ShipRegion,
+		&i.ShipPostalCode,
+		&i.ShipCountry,
+		&i.ShipPhone,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const unsetDefaultAddressesForUser = `-- name: UnsetDefaultAddressesForUser :exec
 UPDATE addresses
 SET is_default = false, updated_at = now()
@@ -966,6 +1193,43 @@ func (q *Queries) UpdateAddressForUser(ctx context.Context, arg UpdateAddressFor
 		&i.Phone,
 		&i.IsDefault,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateOrderStatus = `-- name: UpdateOrderStatus :one
+UPDATE orders SET status = $2, updated_at = now() WHERE id = $1 RETURNING id, customer_id, created_at, status, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, stripe_payment_intent_id, shipping_address_id, ship_recipient_name, ship_line1, ship_line2, ship_city, ship_region, ship_postal_code, ship_country, ship_phone, updated_at
+`
+
+type UpdateOrderStatusParams struct {
+	ID     int64  `json:"id"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error) {
+	row := q.db.QueryRow(ctx, updateOrderStatus, arg.ID, arg.Status)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.CreatedAt,
+		&i.Status,
+		&i.Currency,
+		&i.SubtotalCents,
+		&i.ShippingCents,
+		&i.TaxCents,
+		&i.TotalCents,
+		&i.StripePaymentIntentID,
+		&i.ShippingAddressID,
+		&i.ShipRecipientName,
+		&i.ShipLine1,
+		&i.ShipLine2,
+		&i.ShipCity,
+		&i.ShipRegion,
+		&i.ShipPostalCode,
+		&i.ShipCountry,
+		&i.ShipPhone,
 		&i.UpdatedAt,
 	)
 	return i, err

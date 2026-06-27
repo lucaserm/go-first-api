@@ -45,7 +45,7 @@ SELECT * FROM product_variants WHERE id = $1;
 -- name: ListVariantsByProduct :many
 SELECT * FROM product_variants WHERE product_id = $1 ORDER BY id;
 
--- name: DecreaseVariantStock :exec
+-- name: DecreaseVariantStock :execrows
 UPDATE product_variants
 SET stock = stock - $1
 WHERE id = $2 AND stock >= $1;
@@ -62,11 +62,34 @@ VALUES ($1, $2, $3, $4) RETURNING *;
 SELECT * FROM product_images WHERE product_id = $1 ORDER BY position;
 
 -- name: CreateOrder :one
-INSERT INTO orders (customer_id) VALUES ($1) RETURNING *;
+INSERT INTO orders (
+    customer_id, status, currency,
+    subtotal_cents, shipping_cents, tax_cents, total_cents,
+    shipping_address_id,
+    ship_recipient_name, ship_line1, ship_line2, ship_city,
+    ship_region, ship_postal_code, ship_country, ship_phone
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+) RETURNING *;
 
 -- name: CreateOrderItem :one
-INSERT INTO order_items (order_id, variant_id, quantity, price_in_cents)
-VALUES ($1, $2, $3, $4) RETURNING *;
+INSERT INTO order_items (order_id, variant_id, quantity, price_in_cents, variant_sku, product_name)
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+
+-- name: GetOrderByIDForCustomer :one
+SELECT * FROM orders WHERE id = $1 AND customer_id = $2;
+
+-- name: ListOrdersByCustomer :many
+SELECT * FROM orders WHERE customer_id = $1 ORDER BY id DESC;
+
+-- name: ListOrderItemsByOrder :many
+SELECT * FROM order_items WHERE order_id = $1 ORDER BY id;
+
+-- name: UpdateOrderStatus :one
+UPDATE orders SET status = $2, updated_at = now() WHERE id = $1 RETURNING *;
+
+-- name: SetOrderPaymentIntent :one
+UPDATE orders SET stripe_payment_intent_id = $2, status = $3, updated_at = now() WHERE id = $1 RETURNING *;
 
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = $1;

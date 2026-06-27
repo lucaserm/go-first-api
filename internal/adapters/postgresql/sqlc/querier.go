@@ -15,7 +15,7 @@ type Querier interface {
 	CreateAddress(ctx context.Context, arg CreateAddressParams) (Address, error)
 	CreateCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
-	CreateOrder(ctx context.Context, customerID pgtype.UUID) (Order, error)
+	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateProductImage(ctx context.Context, arg CreateProductImageParams) (ProductImage, error)
@@ -23,12 +23,13 @@ type Querier interface {
 	CreateProductOptionValue(ctx context.Context, arg CreateProductOptionValueParams) (ProductOptionValue, error)
 	CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (ProductVariant, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	DecreaseVariantStock(ctx context.Context, arg DecreaseVariantStockParams) error
+	DecreaseVariantStock(ctx context.Context, arg DecreaseVariantStockParams) (int64, error)
 	DeleteAddressForUser(ctx context.Context, arg DeleteAddressForUserParams) (int64, error)
 	DeleteCartItem(ctx context.Context, arg DeleteCartItemParams) (int64, error)
 	GetAddressByIDForUser(ctx context.Context, arg GetAddressByIDForUserParams) (Address, error)
 	GetCartByUser(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	GetCategoryBySlug(ctx context.Context, slug string) (Category, error)
+	GetOrderByIDForCustomer(ctx context.Context, arg GetOrderByIDForCustomerParams) (Order, error)
 	GetProductByID(ctx context.Context, id int64) (Product, error)
 	GetProductBySlug(ctx context.Context, slug pgtype.Text) (Product, error)
 	GetUserByEmailIgnoreCase(ctx context.Context, lower string) (User, error)
@@ -42,12 +43,16 @@ type Querier interface {
 	ListCategories(ctx context.Context) ([]Category, error)
 	ListImagesByProduct(ctx context.Context, productID int64) ([]ProductImage, error)
 	ListOptionsByProduct(ctx context.Context, productID int64) ([]ProductOption, error)
+	ListOrderItemsByOrder(ctx context.Context, orderID int64) ([]OrderItem, error)
+	ListOrdersByCustomer(ctx context.Context, customerID pgtype.UUID) ([]Order, error)
 	ListProducts(ctx context.Context) ([]Product, error)
 	ListVariantsByProduct(ctx context.Context, productID int64) ([]ProductVariant, error)
 	SetCartItemQuantity(ctx context.Context, arg SetCartItemQuantityParams) (CartItem, error)
 	SetDefaultAddressForUser(ctx context.Context, arg SetDefaultAddressForUserParams) error
+	SetOrderPaymentIntent(ctx context.Context, arg SetOrderPaymentIntentParams) (Order, error)
 	UnsetDefaultAddressesForUser(ctx context.Context, userID pgtype.UUID) error
 	UpdateAddressForUser(ctx context.Context, arg UpdateAddressForUserParams) (Address, error)
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpsertCartItem(ctx context.Context, arg UpsertCartItemParams) (CartItem, error)
 }
 

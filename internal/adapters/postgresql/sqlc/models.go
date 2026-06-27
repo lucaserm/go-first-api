@@ -49,9 +49,26 @@ type Category struct {
 }
 
 type Order struct {
-	ID         int64              `json:"id"`
-	CustomerID pgtype.UUID        `json:"customer_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID                    int64              `json:"id"`
+	CustomerID            pgtype.UUID        `json:"customer_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	Status                string             `json:"status"`
+	Currency              string             `json:"currency"`
+	SubtotalCents         int32              `json:"subtotal_cents"`
+	ShippingCents         int32              `json:"shipping_cents"`
+	TaxCents              int32              `json:"tax_cents"`
+	TotalCents            int32              `json:"total_cents"`
+	StripePaymentIntentID string             `json:"stripe_payment_intent_id"`
+	ShippingAddressID     pgtype.Int8        `json:"shipping_address_id"`
+	ShipRecipientName     string             `json:"ship_recipient_name"`
+	ShipLine1             string             `json:"ship_line1"`
+	ShipLine2             string             `json:"ship_line2"`
+	ShipCity              string             `json:"ship_city"`
+	ShipRegion            string             `json:"ship_region"`
+	ShipPostalCode        string             `json:"ship_postal_code"`
+	ShipCountry           string             `json:"ship_country"`
+	ShipPhone             string             `json:"ship_phone"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
 type OrderItem struct {
@@ -61,6 +78,8 @@ type OrderItem struct {
 	PriceInCents int32              `json:"price_in_cents"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	VariantID    int64              `json:"variant_id"`
+	VariantSku   string             `json:"variant_sku"`
+	ProductName  string             `json:"product_name"`
 }
 
 type Product struct {
