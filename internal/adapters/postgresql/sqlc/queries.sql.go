@@ -11,6 +11,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearCart = `-- name: ClearCart :exec
+DELETE FROM cart_items WHERE cart_id = $1
+`
+
+func (q *Queries) ClearCart(ctx context.Context, cartID int64) error {
+	_, err := q.db.Exec(ctx, clearCart, cartID)
+	return err
+}
+
 const createAddress = `-- name: CreateAddress :one
 INSERT INTO addresses (
     user_id, recipient_name, line1, line2, city, region, postal_code, country, phone, is_default
@@ -56,6 +65,25 @@ func (q *Queries) CreateAddress(ctx context.Context, arg CreateAddressParams) (A
 		&i.Country,
 		&i.Phone,
 		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createCart = `-- name: CreateCart :one
+INSERT INTO carts (user_id)
+VALUES ($1)
+ON CONFLICT (user_id) DO NOTHING
+RETURNING id, user_id, created_at, updated_at
+`
+
+func (q *Queries) CreateCart(ctx context.Context, userID pgtype.UUID) (Cart, error) {
+	row := q.db.QueryRow(ctx, createCart, userID)
+	var i Cart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -338,6 +366,24 @@ func (q *Queries) DeleteAddressForUser(ctx context.Context, arg DeleteAddressFor
 	return result.RowsAffected(), nil
 }
 
+const deleteCartItem = `-- name: DeleteCartItem :execrows
+DELETE FROM cart_items
+WHERE cart_id = $1 AND variant_id = $2
+`
+
+type DeleteCartItemParams struct {
+	CartID    int64 `json:"cart_id"`
+	VariantID int64 `json:"variant_id"`
+}
+
+func (q *Queries) DeleteCartItem(ctx context.Context, arg DeleteCartItemParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteCartItem, arg.CartID, arg.VariantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAddressByIDForUser = `-- name: GetAddressByIDForUser :one
 SELECT id, user_id, recipient_name, line1, line2, city, region, postal_code, country, phone, is_default, created_at, updated_at FROM addresses
 WHERE id = $1 AND user_id = $2
@@ -363,6 +409,22 @@ func (q *Queries) GetAddressByIDForUser(ctx context.Context, arg GetAddressByIDF
 		&i.Country,
 		&i.Phone,
 		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getCartByUser = `-- name: GetCartByUser :one
+SELECT id, user_id, created_at, updated_at FROM carts WHERE user_id = $1
+`
+
+func (q *Queries) GetCartByUser(ctx context.Context, userID pgtype.UUID) (Cart, error) {
+	row := q.db.QueryRow(ctx, getCartByUser, userID)
+	var i Cart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -584,6 +646,60 @@ func (q *Queries) ListAddressesByUser(ctx context.Context, userID pgtype.UUID) (
 	return items, nil
 }
 
+const listCartItemsWithVariant = `-- name: ListCartItemsWithVariant :many
+SELECT
+    ci.id AS item_id,
+    ci.variant_id,
+    ci.quantity,
+    pv.sku,
+    pv.price_in_cents,
+    pv.stock,
+    p.name AS product_name
+FROM cart_items ci
+JOIN product_variants pv ON pv.id = ci.variant_id
+JOIN products p ON p.id = pv.product_id
+WHERE ci.cart_id = $1
+ORDER BY ci.id
+`
+
+type ListCartItemsWithVariantRow struct {
+	ItemID       int64  `json:"item_id"`
+	VariantID    int64  `json:"variant_id"`
+	Quantity     int32  `json:"quantity"`
+	Sku          string `json:"sku"`
+	PriceInCents int32  `json:"price_in_cents"`
+	Stock        int32  `json:"stock"`
+	ProductName  string `json:"product_name"`
+}
+
+func (q *Queries) ListCartItemsWithVariant(ctx context.Context, cartID int64) ([]ListCartItemsWithVariantRow, error) {
+	rows, err := q.db.Query(ctx, listCartItemsWithVariant, cartID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCartItemsWithVariantRow
+	for rows.Next() {
+		var i ListCartItemsWithVariantRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.VariantID,
+			&i.Quantity,
+			&i.Sku,
+			&i.PriceInCents,
+			&i.Stock,
+			&i.ProductName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCategories = `-- name: ListCategories :many
 SELECT id, name, slug, parent_id, created_at FROM categories ORDER BY name
 `
@@ -738,6 +854,33 @@ func (q *Queries) ListVariantsByProduct(ctx context.Context, productID int64) ([
 	return items, nil
 }
 
+const setCartItemQuantity = `-- name: SetCartItemQuantity :one
+UPDATE cart_items
+SET quantity = $3, updated_at = now()
+WHERE cart_id = $1 AND variant_id = $2
+RETURNING id, cart_id, variant_id, quantity, created_at, updated_at
+`
+
+type SetCartItemQuantityParams struct {
+	CartID    int64 `json:"cart_id"`
+	VariantID int64 `json:"variant_id"`
+	Quantity  int32 `json:"quantity"`
+}
+
+func (q *Queries) SetCartItemQuantity(ctx context.Context, arg SetCartItemQuantityParams) (CartItem, error) {
+	row := q.db.QueryRow(ctx, setCartItemQuantity, arg.CartID, arg.VariantID, arg.Quantity)
+	var i CartItem
+	err := row.Scan(
+		&i.ID,
+		&i.CartID,
+		&i.VariantID,
+		&i.Quantity,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const setDefaultAddressForUser = `-- name: SetDefaultAddressForUser :exec
 UPDATE addresses
 SET is_default = true, updated_at = now()
@@ -822,6 +965,34 @@ func (q *Queries) UpdateAddressForUser(ctx context.Context, arg UpdateAddressFor
 		&i.Country,
 		&i.Phone,
 		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertCartItem = `-- name: UpsertCartItem :one
+INSERT INTO cart_items (cart_id, variant_id, quantity)
+VALUES ($1, $2, $3)
+ON CONFLICT (cart_id, variant_id)
+DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, updated_at = now()
+RETURNING id, cart_id, variant_id, quantity, created_at, updated_at
+`
+
+type UpsertCartItemParams struct {
+	CartID    int64 `json:"cart_id"`
+	VariantID int64 `json:"variant_id"`
+	Quantity  int32 `json:"quantity"`
+}
+
+func (q *Queries) UpsertCartItem(ctx context.Context, arg UpsertCartItemParams) (CartItem, error) {
+	row := q.db.QueryRow(ctx, upsertCartItem, arg.CartID, arg.VariantID, arg.Quantity)
+	var i CartItem
+	err := row.Scan(
+		&i.ID,
+		&i.CartID,
+		&i.VariantID,
+		&i.Quantity,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

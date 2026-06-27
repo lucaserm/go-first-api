@@ -11,7 +11,9 @@ import (
 )
 
 type Querier interface {
+	ClearCart(ctx context.Context, cartID int64) error
 	CreateAddress(ctx context.Context, arg CreateAddressParams) (Address, error)
+	CreateCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateOrder(ctx context.Context, customerID pgtype.UUID) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
@@ -23,7 +25,9 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DecreaseVariantStock(ctx context.Context, arg DecreaseVariantStockParams) error
 	DeleteAddressForUser(ctx context.Context, arg DeleteAddressForUserParams) (int64, error)
+	DeleteCartItem(ctx context.Context, arg DeleteCartItemParams) (int64, error)
 	GetAddressByIDForUser(ctx context.Context, arg GetAddressByIDForUserParams) (Address, error)
+	GetCartByUser(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	GetCategoryBySlug(ctx context.Context, slug string) (Category, error)
 	GetProductByID(ctx context.Context, id int64) (Product, error)
 	GetProductBySlug(ctx context.Context, slug pgtype.Text) (Product, error)
@@ -34,14 +38,17 @@ type Querier interface {
 	LinkVariantOptionValue(ctx context.Context, arg LinkVariantOptionValueParams) error
 	ListActiveProducts(ctx context.Context) ([]Product, error)
 	ListAddressesByUser(ctx context.Context, userID pgtype.UUID) ([]Address, error)
+	ListCartItemsWithVariant(ctx context.Context, cartID int64) ([]ListCartItemsWithVariantRow, error)
 	ListCategories(ctx context.Context) ([]Category, error)
 	ListImagesByProduct(ctx context.Context, productID int64) ([]ProductImage, error)
 	ListOptionsByProduct(ctx context.Context, productID int64) ([]ProductOption, error)
 	ListProducts(ctx context.Context) ([]Product, error)
 	ListVariantsByProduct(ctx context.Context, productID int64) ([]ProductVariant, error)
+	SetCartItemQuantity(ctx context.Context, arg SetCartItemQuantityParams) (CartItem, error)
 	SetDefaultAddressForUser(ctx context.Context, arg SetDefaultAddressForUserParams) error
 	UnsetDefaultAddressesForUser(ctx context.Context, userID pgtype.UUID) error
 	UpdateAddressForUser(ctx context.Context, arg UpdateAddressForUserParams) (Address, error)
+	UpsertCartItem(ctx context.Context, arg UpsertCartItemParams) (CartItem, error)
 }
 
 var _ Querier = (*Queries)(nil)

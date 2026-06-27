@@ -123,3 +123,47 @@ WHERE user_id = $1;
 UPDATE addresses
 SET is_default = true, updated_at = now()
 WHERE id = $1 AND user_id = $2;
+
+-- name: GetCartByUser :one
+SELECT * FROM carts WHERE user_id = $1;
+
+-- name: CreateCart :one
+INSERT INTO carts (user_id)
+VALUES ($1)
+ON CONFLICT (user_id) DO NOTHING
+RETURNING *;
+
+-- name: UpsertCartItem :one
+INSERT INTO cart_items (cart_id, variant_id, quantity)
+VALUES ($1, $2, $3)
+ON CONFLICT (cart_id, variant_id)
+DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, updated_at = now()
+RETURNING *;
+
+-- name: SetCartItemQuantity :one
+UPDATE cart_items
+SET quantity = $3, updated_at = now()
+WHERE cart_id = $1 AND variant_id = $2
+RETURNING *;
+
+-- name: DeleteCartItem :execrows
+DELETE FROM cart_items
+WHERE cart_id = $1 AND variant_id = $2;
+
+-- name: ClearCart :exec
+DELETE FROM cart_items WHERE cart_id = $1;
+
+-- name: ListCartItemsWithVariant :many
+SELECT
+    ci.id AS item_id,
+    ci.variant_id,
+    ci.quantity,
+    pv.sku,
+    pv.price_in_cents,
+    pv.stock,
+    p.name AS product_name
+FROM cart_items ci
+JOIN product_variants pv ON pv.id = ci.variant_id
+JOIN products p ON p.id = pv.product_id
+WHERE ci.cart_id = $1
+ORDER BY ci.id;

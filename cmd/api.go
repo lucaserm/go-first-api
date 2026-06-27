@@ -11,6 +11,7 @@ import (
 	repo "github.com/lucaserm/ecom/internal/adapters/postgresql/sqlc"
 	"github.com/lucaserm/ecom/internal/addresses"
 	"github.com/lucaserm/ecom/internal/auth"
+	"github.com/lucaserm/ecom/internal/cart"
 	"github.com/lucaserm/ecom/internal/orders"
 	"github.com/lucaserm/ecom/internal/products"
 )
@@ -66,10 +67,14 @@ func (app *application) mount() http.Handler {
 	addressService := addresses.NewService(repo.New(app.db), app.db)
 	addressHandler := addresses.NewHandler(addressService)
 
+	cartService := cart.NewService(repo.New(app.db), app.db)
+	cartHandler := cart.NewHandler(cartService)
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware)
 		orderHandler.RegisterRoutes(r)
 		addressHandler.RegisterRoutes(r)
+		cartHandler.RegisterRoutes(r)
 
 		// Admin-only routes
 		r.Group(func(r chi.Router) {

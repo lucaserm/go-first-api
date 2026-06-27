@@ -24,6 +24,22 @@ type Address struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Cart struct {
+	ID        int64              `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CartItem struct {
+	ID        int64              `json:"id"`
+	CartID    int64              `json:"cart_id"`
+	VariantID int64              `json:"variant_id"`
+	Quantity  int32              `json:"quantity"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Category struct {
 	ID        int64              `json:"id"`
 	Name      string             `json:"name"`
