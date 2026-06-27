@@ -1,3 +1,9 @@
-bin/
-
+# Backend
+backend/bin/
 .env
+
+# Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
